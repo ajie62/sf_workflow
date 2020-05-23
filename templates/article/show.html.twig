@@ -14,49 +14,51 @@
                 <td>{{ article.id }}</td>
             </tr>
             <tr>
-                <th>Title</th>
+                <th>Titre</th>
                 <td>{{ article.title }}</td>
             </tr>
             <tr>
-                <th>Content</th>
+                <th>Contenu</th>
                 <td>{{ article.content }}</td>
             </tr>
             <tr>
-                <th>Path</th>
+                <th>Slug</th>
                 <td>{{ article.slug }}</td>
             </tr>
             <tr>
-                <th>Status</th>
+                <th>Statut</th>
                 <td>{{ article.status }}</td>
             </tr>
             <tr>
-                <th>CreatedAt</th>
-                <td>{{ article.createdAt ? article.createdAt|date('Y-m-d H:i:s') : '' }}</td>
+                <th>Création</th>
+                <td>{{ article.createdAt ? article.createdAt|date('d/m/Y à H:i:s') : '' }}</td>
             </tr>
             <tr>
-                <th>UpdatedAt</th>
-                <td>{{ article.updatedAt ? article.updatedAt|date('Y-m-d H:i:s') : '' }}</td>
+                <th>Mise à jour</th>
+                <td>{{ article.updatedAt ? article.updatedAt|date('d/m/Y à H:i:s') : '' }}</td>
             </tr>
             <tr>
-                <th>Author</th>
+                <th>Auteur</th>
                 <td>
-                    {{ article.author == app.user ? 'You are the author of this article' : article.author.username }}
+                    {{ article.author == app.user ? 'Vous êtes l\'auteur de cet article'  : article.author.username }}
                 </td>
             </tr>
             <tr>
-                <th>Change status</th>
+                <th>Changement de statut</th>
                 <td>
                     {% for availableTransition in availableTransitions %}
                         <a href="{{ path('article_change_status', {'id': article.id, 'status': availableTransition.name}) }}">
                             {{ availableTransition.tos|join(' | ') }}
                         </a>
                     {% else %}
-                        No status available
+                        Aucun changement possible
                     {% endfor %}
                 </td>
             </tr>
             </tbody>
         </table>
+
+        <br>
 
         <a href="{{ path('article_index') }}" class="btn btn-dark d-inline-block">back to list</a>
 
@@ -67,5 +69,53 @@
         {% if is_granted('delete', article) %}
             {{ include('article/_delete_form.html.twig') }}
         {% endif %}
+
+        <hr>
+        <br>
+
+        <div class="row">
+            <div class="col-md-6">
+                <h2>Une action n'est pas possible ?</h2>
+                <ul class="list-unstyled">
+                    {% for transition in workflow_all_transitions(article) %}
+                        {% if not workflow_can(article, transition.name) %}
+                            <li>
+                                <strong>{{ transition.name }}</strong>:
+                                <ul class="list-unstyled">
+                                    {% for blocker in workflow_transition_blockers(article, transition.name) %}
+                                        <li>
+                                            {{ blocker.message }}
+                                            {% if blocker.parameters.expression is defined %}
+                                                <code>{{ blocker.parameters.expression }}</code>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="col-md-6">
+                <h2>Les 5 derniers statuts de cet article</h2>
+                {% for transitionContext in article.transitionContexts[0:5] %}
+                    <div class="card panel-default">
+                        <div class="card-body">
+                            <dl class="dl-horizontal" style="margin: 0">
+                                <dt>Nouveau statut</dt>
+
+                                <dd>{{ transitionContext.new_status|join(', ') }}</dd>
+
+                                {% for k, v in transitionContext.context %}
+                                    <dt>{{ k|title }}</dt>
+                                    <dd>{{ v }}</dd>
+                                {% endfor %}
+                            </dl>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 {% endblock %}

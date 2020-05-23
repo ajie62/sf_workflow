@@ -117,13 +117,15 @@ class AdminArticleController extends AbstractController
         $workflow = $registry->get($article);
 
         try {
-            $workflow->apply($article, $status);
+            $workflow->apply($article, $status, [
+                'time' => date('y-m-d H:i:s'),
+            ]);
             $this->em()->flush();
         } catch (\LogicException $exception) {
-            throw new \Exception($exception->getMessage());
+            $this->addFlash('danger', $exception->getMessage());
         }
 
-        return $this->redirectToRoute('article_index');
+        return $this->redirectToRoute('article_show', ['id' => $article->getId()]);
     }
 
     private function em(): ObjectManager

@@ -66,11 +66,17 @@ class Article
      */
     private $author;
 
+    /**
+     * @ORM\Column(type="json", nullable=true)
+     */
+    private $transitionContexts;
+
     public function __construct()
     {
         $this->createdAt = new \DateTime();
         $this->updatedAt = new \DateTime();
         $this->status = 'draft';
+        $this->transitionContexts = [];
     }
 
     public function getId(): ?int
@@ -111,6 +117,11 @@ class Article
     {
         $this->status = $status;
 
+        $this->transitionContexts[] = [
+            'new_status' => $status,
+            'context' => $context,
+        ];
+
         return $this;
     }
 
@@ -137,4 +148,18 @@ class Article
 
         return $this;
     }
+
+    public function getTransitionContexts(): ?array
+    {
+        return $this->transitionContexts;
+    }
+
+    public function setTransitionContexts($transitionContexts): self
+    {
+        $this->transitionContexts = $transitionContexts;
+
+        return $this;
+    }
+
+
 }

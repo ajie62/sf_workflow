@@ -22,12 +22,19 @@ class UserFixtures extends Fixture
     public function load(ObjectManager $manager): void
     {
         $userAdmin = new User();
+        $userSpellchecker = new User();
         $userWriter = new User();
 
         $userAdmin
             ->setUsername('admin')
             ->setRoles(['ROLE_ADMIN'])
             ->setEmail('admin@test.com')
+        ;
+
+        $userSpellchecker
+            ->setUsername('spellchecker')
+            ->setRoles(['ROLE_SPELLCHECKER'])
+            ->setEmail('spellchecker@test.com')
         ;
 
         $userWriter
@@ -38,9 +45,11 @@ class UserFixtures extends Fixture
 
         $pwd = $this->userPasswordEncoder->encodePassword($userAdmin, 'password');
         $userAdmin->setPassword($pwd);
+        $userSpellchecker->setPassword($pwd);
         $userWriter->setPassword($pwd);
 
         $manager->persist($userAdmin);
+        $manager->persist($userSpellchecker);
         $manager->persist($userWriter);
         $manager->flush();
     }
