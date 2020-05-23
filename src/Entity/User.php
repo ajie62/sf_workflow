@@ -4,6 +4,7 @@ declare (strict_types=1);
 
 namespace App\Entity;
 
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -16,6 +17,10 @@ use Symfony\Component\Security\Core\User\UserInterface;
  */
 class User implements UserInterface
 {
+    const USER_WRITER = 'ROLE_WRITER';
+    const USER_SPELLCHECKER = 'ROLE_SPELLCHECKER';
+    const USER_ADMIN = 'ROLE_ADMIN';
+
     /**
      * @var int
      *
@@ -53,6 +58,13 @@ class User implements UserInterface
      */
     private $password;
 
+    /**
+     * @var Article[]|Collection
+     *
+     * @ORM\OneToMany(targetEntity="App\Entity\Article", mappedBy="author", orphanRemoval=true)
+     */
+    private $articles;
+
     public function getId(): int
     {
         return $this->id;
@@ -85,7 +97,7 @@ class User implements UserInterface
     public function getRoles(): array
     {
         $roles = $this->roles;
-        $roles[] = 'ROLE_WRITER';
+        $roles[] = static::USER_WRITER;
 
         return array_unique($roles);
     }
@@ -105,6 +117,37 @@ class User implements UserInterface
     public function setPassword(?string $password): self
     {
         $this->password = $password;
+
+        return $this;
+    }
+
+    /**
+     * @return Article[]|Collection|null
+     */
+    public function getArticles(): ?Collection
+    {
+        return $this->articles;
+    }
+
+    public function addArticle(Article $article): self
+    {
+        if (!$this->articles->contains($article)) {
+            $this->articles[] = $article;
+            $article->setAuthor($this);
+        }
+
+        return $this;
+    }
+
+    public function removeArticle(Article $article): self
+    {
+        if ($this->articles->contains($article)) {
+            $this->articles->removeElement($article);
+
+            if ($this === $article->getAuthor()) {
+                $article->setAuthor(null);
+            }
+        }
 
         return $this;
     }

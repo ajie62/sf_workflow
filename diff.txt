@@ -1,0 +1,218 @@
+diff --git a/config/packages/stof_doctrine_extensions.yaml b/config/packages/stof_doctrine_extensions.yaml
+index c83f3b1..a89cf08 100644
+--- a/config/packages/stof_doctrine_extensions.yaml
++++ b/config/packages/stof_doctrine_extensions.yaml
+@@ -2,3 +2,7 @@
+ # See the official DoctrineExtensions documentation for more details: https://github.com/Atlantic18/DoctrineExtensions/tree/master/doc/
+ stof_doctrine_extensions:
+     default_locale: en_US
++    orm:
++        default:
++            sluggable: true
++            timestampable: true
+diff --git a/config/packages/workflow.yaml b/config/packages/workflow.yaml
+index 855df59..aad76cd 100644
+--- a/config/packages/workflow.yaml
++++ b/config/packages/workflow.yaml
+@@ -1,2 +1,34 @@
+ framework:
+-    workflows: null
++    workflows:
++        article_workflow:
++            type: 'state_machine'
++            audit_trail:
++                enabled: true
++            marking_store:
++                type: 'method'
++                property: 'status'
++            supports:
++                - App\Entity\Article
++            initial_marking: draft
++            places:
++                - draft
++                - reviewed
++                - rejected
++                - published
++            transitions:
++                to_review:
++                    guard: "is_granted('ROLE_SPELLCHECKER')"
++                    from: draft
++                    to: reviewed
++                publish:
++                    guard: "is_granted('ROLE_ADMIN')"
++                    from: reviewed
++                    to: published
++                reject:
++                    guard: "is_granted('ROLE_ADMIN')"
++                    from: reviewed
++                    to: rejected
++                to_draft:
++                    guard: "is_granted('ROLE_WRITER')"
++                    from: rejected
++                    to: draft
+diff --git a/src/Controller/HomeController.php b/src/Controller/HomeController.php
+index 3b43a84..299e6a1 100644
+--- a/src/Controller/HomeController.php
++++ b/src/Controller/HomeController.php
+@@ -4,7 +4,9 @@ declare (strict_types=1);
+ 
+ namespace App\Controller;
+ 
++use App\Repository\ArticleRepository;
+ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
++use Symfony\Component\HttpFoundation\Response;
+ use Symfony\Component\Routing\Annotation\Route;
+ 
+ class HomeController extends AbstractController
+@@ -12,8 +14,12 @@ class HomeController extends AbstractController
+     /**
+      * @Route("/", name="app_home")
+      */
+-    public function index()
++    public function index(ArticleRepository $articleRepository): Response
+     {
+-        return $this->render('home/index.html.twig');
++        $articles = $articleRepository->findLastArticlePublished();
++
++        return $this->render('home/index.html.twig', [
++            'articles' => $articles,
++        ]);
+     }
+ }
+diff --git a/src/Entity/User.php b/src/Entity/User.php
+index 5e77432..cf69df7 100644
+--- a/src/Entity/User.php
++++ b/src/Entity/User.php
+@@ -4,6 +4,7 @@ declare (strict_types=1);
+ 
+ namespace App\Entity;
+ 
++use Doctrine\Common\Collections\Collection;
+ use Doctrine\ORM\Mapping as ORM;
+ use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+ use Symfony\Component\Security\Core\User\UserInterface;
+@@ -16,6 +17,10 @@ use Symfony\Component\Security\Core\User\UserInterface;
+  */
+ class User implements UserInterface
+ {
++    const USER_WRITER = 'ROLE_WRITER';
++    const USER_SPELLCHECKER = 'ROLE_SPELLCHECKER';
++    const USER_ADMIN = 'ROLE_ADMIN';
++
+     /**
+      * @var int
+      *
+@@ -53,6 +58,13 @@ class User implements UserInterface
+      */
+     private $password;
+ 
++    /**
++     * @var Article[]|Collection
++     *
++     * @ORM\OneToMany(targetEntity="App\Entity\Article", mappedBy="author", orphanRemoval=true)
++     */
++    private $articles;
++
+     public function getId(): int
+     {
+         return $this->id;
+@@ -85,7 +97,7 @@ class User implements UserInterface
+     public function getRoles(): array
+     {
+         $roles = $this->roles;
+-        $roles[] = 'ROLE_WRITER';
++        $roles[] = static::USER_WRITER;
+ 
+         return array_unique($roles);
+     }
+@@ -109,6 +121,37 @@ class User implements UserInterface
+         return $this;
+     }
+ 
++    /**
++     * @return Article[]|Collection|null
++     */
++    public function getArticles(): ?Collection
++    {
++        return $this->articles;
++    }
++
++    public function addArticle(Article $article): self
++    {
++        if (!$this->articles->contains($article)) {
++            $this->articles[] = $article;
++            $article->setAuthor($this);
++        }
++
++        return $this;
++    }
++
++    public function removeArticle(Article $article): self
++    {
++        if ($this->articles->contains($article)) {
++            $this->articles->removeElement($article);
++
++            if ($this === $article->getAuthor()) {
++                $article->setAuthor(null);
++            }
++        }
++
++        return $this;
++    }
++
+     /**
+      * @inheritDoc
+      */
+diff --git a/templates/component/_base_header.html.twig b/templates/component/_base_header.html.twig
+index b9ac3bd..599925e 100644
+--- a/templates/component/_base_header.html.twig
++++ b/templates/component/_base_header.html.twig
+@@ -9,11 +9,11 @@
+             <li class="nav-item {% if 'app_home' == app.request.get('_route') %}active{% endif %}">
+                 <a class="nav-link" href="{{ path('app_home') }}">Home <span class="sr-only">(current)</span></a>
+             </li>
+-            {#{% if app.user %}
++            {% if app.user %}
+                 <li class="nav-item">
+                     <a class="nav-link {% if 'article_index' == app.request.get('_route') %}active{% endif %}" href="{{ path('article_index') }}">Articles</a>
+                 </li>
+-            {% endif %}#}
++            {% endif %}
+         </ul>
+         <ul class="nav justify-content-end">
+             {% if app.user %}
+diff --git a/templates/home/index.html.twig b/templates/home/index.html.twig
+index 2730894..3971fd4 100644
+--- a/templates/home/index.html.twig
++++ b/templates/home/index.html.twig
+@@ -10,17 +10,17 @@
+         </div>
+     </div>
+ 
+-{#    <div class="container">#}
+-{#        <!-- Example row of columns -->#}
+-{#        <div class="row">#}
+-{#            {% for article in articles %}#}
+-{#                <div class="col-md-4">#}
+-{#                    <h2>{{ article.name }}</h2>#}
+-{#                    <p>{{ article.content }}</p>#}
+-{#                    <p><a class="btn btn-secondary" href="#" role="button">View details &raquo;</a></p>#}
+-{#                </div>#}
+-{#            {% endfor %}#}
+-{#        </div>#}
+-{#    </div>#}
++    <div class="container">
++        <!-- Example row of columns -->
++        <div class="row">
++            {% for article in articles %}
++                <div class="col-md-4">
++                    <h2>{{ article.title }}</h2>
++                    <p>{{ article.content }}</p>
++                    <p><a class="btn btn-secondary" href="#" role="button">View details &raquo;</a></p>
++                </div>
++            {% endfor %}
++        </div>
++    </div>
+     <!-- /container -->
+ {% endblock %}
+\ No newline at end of file
