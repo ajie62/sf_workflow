@@ -1,21 +1,21 @@
 framework:
     workflows:
         article_workflow:
-            type: 'state_machine'
-            audit_trail:
+            type: 'state_machine' # ne peut pas se trouver à plus d'un endroit simultanément
+            audit_trail: # permet de logger l'entrée et la sortie d'une place, l'exécution d'une transition
                 enabled: true
             marking_store:
-                type: 'method'
+                type: 'method' # utilise le MethodMarkingStore pour passer un context personnalisé
                 property: 'status'
             supports:
                 - App\Entity\Article
-            initial_marking: draft
+            initial_marking: draft # statut duquel part le workflow
             places:
                 - draft
                 - reviewed
                 - rejected
                 - published
-            transitions:
+            transitions: # les transitions pour passer d'un état à un autre
                 to_review:
                     guard: "is_granted('ROLE_SPELLCHECKER')"
                     from: draft
