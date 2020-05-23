@@ -24,6 +24,10 @@ framework:
                     guard: "is_granted('ROLE_ADMIN')"
                     from: reviewed
                     to: published
+                unpublish:
+                    guard: "is_granted('ROLE_WRITER')"
+                    from: published
+                    to: reviewed
                 reject:
                     guard: "is_granted('ROLE_ADMIN')"
                     from: reviewed

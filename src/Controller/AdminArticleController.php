@@ -121,6 +121,7 @@ class AdminArticleController extends AbstractController
                 'time' => date('y-m-d H:i:s'),
             ]);
             $this->em()->flush();
+            $this->addFlash('success', 'Le statut a bien été modifié !');
         } catch (\LogicException $exception) {
             $this->addFlash('danger', $exception->getMessage());
         }

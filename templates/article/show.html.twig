@@ -3,6 +3,14 @@
 {% block title %}Article{% endblock %}
 
 {% block body %}
+    {% for label, messages in app.flashes(['success', 'warning']) %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
     <div class="container">
 
         <h1>Article : {{ article.title }}</h1>
@@ -60,10 +68,10 @@
 
         <br>
 
-        <a href="{{ path('article_index') }}" class="btn btn-dark d-inline-block">back to list</a>
+        <a href="{{ path('article_index') }}" class="btn btn-dark d-inline-block">Retour à la liste</a>
 
         {% if is_granted('edit', article) %}
-            <a href="{{ path('article_edit', {'id': article.id}) }}" class="btn btn-primary d-inline-block">edit</a>
+            <a href="{{ path('article_edit', {'id': article.id}) }}" class="btn btn-primary d-inline-block">Éditer</a>
         {% endif %}
 
         {% if is_granted('delete', article) %}
@@ -75,7 +83,7 @@
 
         <div class="row">
             <div class="col-md-6">
-                <h2>Une action n'est pas possible ?</h2>
+                <h2>Quelles actions sont possibles ?</h2>
                 <ul class="list-unstyled">
                     {% for transition in workflow_all_transitions(article) %}
                         {% if not workflow_can(article, transition.name) %}
@@ -99,8 +107,8 @@
 
             <div class="col-md-6">
                 <h2>Les 5 derniers statuts de cet article</h2>
-                {% for transitionContext in article.transitionContexts[0:5] %}
-                    <div class="card panel-default">
+                {% for transitionContext in article.transitionContexts[0:5]|reverse %}
+                    <div class="card {% if transitionContext.new_status == 'published' %}text-white bg-success{% endif %}">
                         <div class="card-body">
                             <dl class="dl-horizontal" style="margin: 0">
                                 <dt>Nouveau statut</dt>

@@ -29,7 +29,10 @@
             </thead>
             <tbody>
             {% for article in articles %}
-                <tr>
+                <tr {% if article.status == 'published' %}class="table-success"
+                    {% elseif article.status == 'rejected' %}class="table-danger"
+                    {% endif %}
+                >
                     <td>{{ article.id }}</td>
                     <td>{{ article.title }}</td>
                     <td>{{ article.status }}</td>
